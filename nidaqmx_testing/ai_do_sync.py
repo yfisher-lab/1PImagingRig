@@ -13,6 +13,7 @@ import numpy.typing
 
 import nidaqmx
 from nidaqmx.constants import AcquisitionType, ProductCategory, LineGrouping
+from nidaqmx.constants import LoggingMode, LoggingOperation, READ_ALL_AVAILABLE
 import nidaqmx.system
 
 
@@ -59,9 +60,10 @@ ai_led635 = 'ai4'
 # PV850 pump output
 ai_pump = 'ai5'
 
+out_dir = "C:\\Users\\fisherlab\\ni_debugging"
 
-
-
+sample_rate = 10000 # Hz
+dur = 10 #s
 
 def main():
 
@@ -69,86 +71,114 @@ def main():
 
         # set analog input channels
         ai_task.ai_channels.add_ai_voltage_chan('Dev1/ai0')
+        ai_task.ai_channels.add_ai_voltage_chan('Dev1/ai1')
 
         #  edit this to discrete amount of  time
-        ai_task.timing.cfg_samp_clk_timing(1000.0, sample_mode=AcquisitionType.CONTINUOUS)
+        ai_task.timing.cfg_samp_clk_timing(sample_rate, sample_mode=AcquisitionType.FINITE,
+                                           samps_per_chan=int(dur*sample_rate))
+        
+        ai_task.in_stream.configure_logging(out_dir + "\\TestData.tdms", LoggingMode.LOG_AND_READ, 
+                                            operation=LoggingOperation.CREATE_OR_REPLACE)
 
         do_task.do_channels.add_do_chan('Dev1/port0/line0', line_grouping=LineGrouping.CHAN_PER_LINE)
-        do_task.timing.cfg_samp_clk_timing(1000.0, sample_mode=AcquisitionType.CONTINUOUS)
+        do_task.do_channels.add_do_chan('Dev1/port0/line1', line_grouping=LineGrouping.CHAN_PER_LINE)
+        do_task.timing.cfg_samp_clk_timing(sample_rate, sample_mode=AcquisitionType.FINITE,
+                                           samps_per_chan=int(dur*sample_rate)) 
+        
+        
+        do_data = np.zeros([2,int(dur*sample_rate)])
+        do_data[:,50000:100000]=1
+        do_data[:,-1]=0
+        # do_data[:,200000:300000]=1
+        do_data = do_data>0
+
+        do_task.write(do_data, auto_start=False)
+        do_task.start()
+        # ai_task.start()
+        ai_task.read(READ_ALL_AVAILABLE)
+
+        # do_task.wait_until_done(dur+10)
+        # # ai_task.wait_until_done(dur)
+        # ai_task.stop()
+        # do_task.stop()
+
+        
 
 
 
 # 
-with nidaqmx.Task() as task:
-    task.ai_channels.add_ai_voltage_chan("Dev1/ai0")
-    task.timing.cfg_samp_clk_timing(1000.0, sample_mode=AcquisitionType.FINITE, samps_per_chan=10)
-    task.in_stream.configure_logging("TestData.tdms", LoggingMode.LOG_AND_READ, operation=LoggingOperation.CREATE_OR_REPLACE)
-    data = task.read(READ_ALL_AVAILABLE)
-    print("Acquired data: [" + ", ".join(f"{value:f}" for value in data) + "]")
-# 
-from nptdms import TdmsFile
-with TdmsFile.read("TestData.tdms") as tdms_file:
-  for group in tdms_file.groups():
-    for channel in group.channels():
-      data = channel[:]
-      print("data: [" + ", ".join(f"{value:f}" for value in data) + "]")
+# with nidaqmx.Task() as task:
+#     task.ai_channels.add_ai_voltage_chan("Dev1/ai0")
+#     task.timing.cfg_samp_clk_timing(1000.0, sample_mode=AcquisitionType.FINITE, samps_per_chan=10)
+#     task.in_stream.configure_logging(out_dir + '\TestData.tdms', LoggingMode.LOG_AND_READ, operation=LoggingOperation.CREATE_OR_REPLACE)
+#     data = task.read(READ_ALL_AVAILABLE)
+#     print("Acquired data: [" + ", ".join(f"{value:f}" for value in data) + "]")
+# # 
+# from nptdms import TdmsFile
+# with TdmsFile.read("TestData.tdms") as tdms_file:
+#   for group in tdms_file.groups():
+#     for channel in group.channels():
+#       data = channel[:]
+#       print("data: [" + ", ".join(f"{value:f}" for value in data) + "]")
 
 # https://github.com/ni/nidaqmx-python/blob/master/examples/synchronization/multi_function/ai_ao_sync.py
-def main():
-    """Continuously acquires and generate data at the same time."""
-    total_read = 0
-    number_of_samples = 1000
+# def main():
+#     """Continuously acquires and generate data at the same time."""
+#     total_read = 0
+#     number_of_samples = 1000
 
-    with nidaqmx.Task() as ai_task, nidaqmx.Task() as ao_task:
+#     with nidaqmx.Task() as ai_task, nidaqmx.Task() as ao_task:
 
-        def callback(task_handle, every_n_samples_event_type, number_of_samples, callback_data):
-            """Callback function for reading signals."""
-            nonlocal total_read
-            read = ai_task.read(number_of_samples_per_channel=number_of_samples)
-            total_read += len(read)
-            print(f"Acquired data: {len(read)} samples. Total {total_read}.", end="\r")
+#         def callback(task_handle, every_n_samples_event_type, number_of_samples, callback_data):
+#             """Callback function for reading signals."""
+#             nonlocal total_read
+#             read = ai_task.read(number_of_samples_per_channel=number_of_samples)
+#             total_read += len(read)
+#             print(f"Acquired data: {len(read)} samples. Total {total_read}.", end="\r")
 
-            return 0
+#             return 0
 
-        ai_task.ai_channels.add_ai_voltage_chan("Dev1/ai0")
-        ai_task.timing.cfg_samp_clk_timing(1000.0, sample_mode=AcquisitionType.CONTINUOUS)
-        ai_task.register_every_n_samples_acquired_into_buffer_event(1000, callback)
-        terminal_name = get_terminal_name_with_dev_prefix(ai_task, "ai/StartTrigger")
+#         ai_task.ai_channels.add_ai_voltage_chan("Dev1/ai0")
+#         ai_task.timing.cfg_samp_clk_timing(1000.0, sample_mode=AcquisitionType.CONTINUOUS)
+#         ai_task.register_every_n_samples_acquired_into_buffer_event(1000, callback)
+#         terminal_name = get_terminal_name_with_dev_prefix(ai_task, "ai/StartTrigger")
 
-        ao_task.ao_channels.add_ao_voltage_chan("Dev1/ao0")
-        ao_task.timing.cfg_samp_clk_timing(1000.0, sample_mode=AcquisitionType.CONTINUOUS)
-        ao_task.triggers.start_trigger.cfg_dig_edge_start_trig(terminal_name)
+#         ao_task.ao_channels.add_ao_voltage_chan("Dev1/ao0")
+#         ao_task.timing.cfg_samp_clk_timing(1000.0, sample_mode=AcquisitionType.CONTINUOUS)
+#         ao_task.triggers.start_trigger.cfg_dig_edge_start_trig(terminal_name)
 
-        actual_sampling_rate = ao_task.timing.samp_clk_rate
-        print(f"Actual sampling rate: {actual_sampling_rate:g} S/s")
+#         actual_sampling_rate = ao_task.timing.samp_clk_rate
+#         print(f"Actual sampling rate: {actual_sampling_rate:g} S/s")
 
-        ao_data, _ = generate_sine_wave(
-            frequency=10.0,
-            amplitude=1.0,
-            sampling_rate=actual_sampling_rate,
-            number_of_samples=number_of_samples,
-        )
+#         ao_data, _ = generate_sine_wave(
+#             frequency=10.0,
+#             amplitude=1.0,
+#             sampling_rate=actual_sampling_rate,
+#             number_of_samples=number_of_samples,
+#         )
 
-        ao_task.write(ao_data)
-        ao_task.start()
-        ai_task.start()
+#         ao_task.write(ao_data)
+#         ao_task.start()
+#         ai_task.start()
 
-        input("Acquiring samples continuously. Press Enter to stop.\n")
+#         input("Acquiring samples continuously. Press Enter to stop.\n")
 
-        ai_task.stop()
-        ao_task.stop()
+#         ai_task.stop()
+#         ao_task.stop()
 
-        print(f"\nAcquired {total_read} total samples.")
+#         print(f"\nAcquired {total_read} total samples.")
 
 
 
 
 
 if __name__=="__main__":
-    device = nidaqmx.system.Device('Dev1')
-    print(device.do_lines)
-    for channel in device.do_lines:
-        print(channel.name)
+    # device = nidaqmx.system.Device('Dev1')
+    # print(device.do_lines)
+    # for channel in device.do_lines:
+    #     print(channel.name)
     
     # for device in nidaqmx.system.System.local().devices:
     #     print(device)
+
+    main()
