@@ -1,0 +1,7 @@
+README.md
+setup.py
+ImagingRig1P.egg-info/PKG-INFO
+ImagingRig1P.egg-info/SOURCES.txt
+ImagingRig1P.egg-info/dependency_links.txt
+ImagingRig1P.egg-info/top_level.txt
+ImagingRig1P/nidaq_testing/ai_do_sync.py

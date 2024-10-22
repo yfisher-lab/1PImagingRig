@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: ImagingRig1P
+Version: 0.0.1
+Summary: Code for controlling hardware for home built ex vivo imaging rigt
+Home-page: https://github.com/yfisher-lab/1PImagingRig.git
+Author: Mark Plitt
+Author-email: markplitt@gmail.com
+License: BSD
+Classifier: Development Status :: 3 - Alpha
+Classifier: Topic :: Utilities
+Classifier: License :: OSI Approved :: BSD License
+
+# 1PImagingRig
