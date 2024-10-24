@@ -7,9 +7,10 @@ DIGITAL_OUTPUTS  = {
     # CoolLED triggers
     'led365_trigger':  DEVNAME + '/port0/line1', 
     'led450_trigger':  DEVNAME + '/port0/line2',
-    'led550_trigger':  DEVNAME + '/port0/line4',
-    # PV850 pump trigger
-    'pump':  DEVNAME + '/port0/line5'
+    'led550_trigger':  DEVNAME + '/port0/line3',
+    'led635_trigger':  DEVNAME + '/port0/line4',
+    #  PV850 pump trigger
+    'pump_trigger':  DEVNAME + '/port0/line5'
 }
 
 ANALOG_INPUTS = {

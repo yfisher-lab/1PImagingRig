@@ -69,6 +69,7 @@ class Experiment():
         if name in set(params.DIGITAL_OUTPUTS.keys()):
             return
         else:
+            print(name)
             raise Exception ###
 
 
@@ -79,7 +80,7 @@ class Experiment():
             arr (_type_): _description_
         """
         assert isinstance(arr,np.ndarray) ###
-        assert arr.shape[0] == self._n_samples ####
+        assert arr.shape[0] == self._n_samples, f"{arr.shape[0]}, {self._n_samples}"
         if ((arr==0).sum() + (arr==1).sum() != arr.shape[0]): 
             Warning ####
         
@@ -97,7 +98,8 @@ class Experiment():
 
         with nidaqmx.Task('analog_inputs') as ai_task, nidaqmx.Task('digital_outputs') as do_task:
 
-
+            # ai_task.in_stream.timeout = self._duration + 5
+            # do_task.out_stream.timeout = self._duration + 5
             ## set up analog input task
             for ai_name in self._analog_inputs:
                 ai_task.ai_channels.add_ai_voltage_chan(params.ANALOG_INPUTS[ai_name])
@@ -121,7 +123,8 @@ class Experiment():
 
             # simultaneously start digital outputs and analog inputs
             do_task.start()
-            ai_task.read(READ_ALL_AVAILABLE)
+            ai_task.read(READ_ALL_AVAILABLE, timeout=self._duration+5)
+            # ai_task.wait_until_done(self._duration+5)
 
 
             
