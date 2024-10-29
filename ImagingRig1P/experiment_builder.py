@@ -5,6 +5,7 @@ import nidaqmx.system._collections
 import nidaqmx.system._collections.physical_channel_collection
 import numpy as np
 import numpy.typing
+import pandas as pd
 
 import nidaqmx
 from nidaqmx.constants import AcquisitionType, ProductCategory, LineGrouping
@@ -53,7 +54,9 @@ class Experiment():
         self._analog_inputs.append('camera_output')
         
         
-
+    @property
+    def analog_inputs(self):
+        return self._analog_inputs
 
 
 
@@ -93,16 +96,14 @@ class Experiment():
         do_data = np.zeros([len(self._do_dict),self._n_samples])==0
         for i, v in enumerate(self._do_dict.values()):
             do_data[i,:] = v
-        # do_data = do_data>0
-        # do_data = np.array([v for v in self._do_dict.values()])
+       
 
         with nidaqmx.Task('analog_inputs') as ai_task, nidaqmx.Task('digital_outputs') as do_task:
 
-            # ai_task.in_stream.timeout = self._duration + 5
-            # do_task.out_stream.timeout = self._duration + 5
             ## set up analog input task
             for ai_name in self._analog_inputs:
-                ai_task.ai_channels.add_ai_voltage_chan(params.ANALOG_INPUTS[ai_name])
+                ai_task.ai_channels.add_ai_voltage_chan(params.ANALOG_INPUTS[ai_name],
+                                                        terminal_config=nidaqmx.constants.TerminalConfiguration.RSE)
 
             ai_task.timing.cfg_samp_clk_timing(self._sample_rate, sample_mode=AcquisitionType.FINITE,
                                                samps_per_chan = self._n_samples)
@@ -112,7 +113,6 @@ class Experiment():
             
             ## set up 
             for do_name in do_names:
-                print(do_name)
                 do_task.do_channels.add_do_chan(do_name, line_grouping=LineGrouping.CHAN_PER_LINE)
             do_task.timing.cfg_samp_clk_timing(self._sample_rate, sample_mode=AcquisitionType.FINITE,
                                                samps_per_chan=self._n_samples)
@@ -124,15 +124,21 @@ class Experiment():
             # simultaneously start digital outputs and analog inputs
             do_task.start()
             ai_task.read(READ_ALL_AVAILABLE, timeout=self._duration+5)
-            # ai_task.wait_until_done(self._duration+5)
 
 
             
 
-    def load_tdms(self):
+    def tdms_to_dataframe(self):
+        tdms_file = TdmsFile.read(self._logfilename)
+        analog_inputs = tdms_file['analog_inputs']
 
-        tdms_file = tdms_file.read(self._logfilename)
-        
+        df = {}
+        for i, ai_name in enumerate(self._analog_inputs):
+            channel = analog_inputs[params.ANALOG_INPUTS[ai_name]]
+            if i==0:
+                df['time']= channel.time_track()
+            df[ai_name] = channel.data[:]
+        return pd.DataFrame.from_dict(df)
 
         
 
