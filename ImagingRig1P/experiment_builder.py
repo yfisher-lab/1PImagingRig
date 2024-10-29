@@ -1,16 +1,19 @@
 from abc import ABC, abstractmethod
 from typing import Tuple
+import pathlib
 
 import nidaqmx.system._collections
 import nidaqmx.system._collections.physical_channel_collection
 import numpy as np
 import numpy.typing
 import pandas as pd
+import cloudpickle
 
 import nidaqmx
 from nidaqmx.constants import AcquisitionType, ProductCategory, LineGrouping
 from nidaqmx.constants import LoggingMode, LoggingOperation, READ_ALL_AVAILABLE
 import nidaqmx.system
+import nidaqmx.task.channels
 
 from nptdms import TdmsFile
 
@@ -28,7 +31,7 @@ class Experiment():
         """
         
         #TODO add logging configurations
-        self._logfilename = logfilename
+        self._logfilename = pathlib.Path(logfilename)
         # check parent directory exists
 
         # check disk space
@@ -52,6 +55,8 @@ class Experiment():
         self._analog_inputs = [k for k in self._do_dict.keys()]
         # add camera output
         self._analog_inputs.append('camera_output')
+
+        self.pkl_dir = None
         
         
     @property
@@ -104,6 +109,9 @@ class Experiment():
             for ai_name in self._analog_inputs:
                 ai_task.ai_channels.add_ai_voltage_chan(params.ANALOG_INPUTS[ai_name],
                                                         terminal_config=nidaqmx.constants.TerminalConfiguration.RSE)
+            # for i, _ in enumerate(self._analog_inputs):
+            #     ai_task.ai_channels[i].ai_lowpass_enable=True
+            #     ai_task.ai_channels[i].ai_lowpass_cutoff_freq = self._sample_rate/4
 
             ai_task.timing.cfg_samp_clk_timing(self._sample_rate, sample_mode=AcquisitionType.FINITE,
                                                samps_per_chan = self._n_samples)
@@ -129,6 +137,11 @@ class Experiment():
             
 
     def tdms_to_dataframe(self):
+        """_summary_
+
+        Returns:
+            _type_: _description_
+        """
         tdms_file = TdmsFile.read(self._logfilename)
         analog_inputs = tdms_file['analog_inputs']
 
@@ -141,6 +154,24 @@ class Experiment():
         return pd.DataFrame.from_dict(df)
 
         
+    def save_dataframe(self,dataframe, scan_info, **kwargs):
+        """_summary_
+
+        Args:
+            dataframe (_type_): _description_
+            scan_info (_type_): _description_
+        """
+        self.pkl_dir = self._logfilename.with_suffix('.pkl')
+        save_dict = {'dataframe': dataframe,
+                     'scan_info': scan_info}
+        for k,v in kwargs.items():
+            save_dict[k]=v
+        with open(self.pkl_dir, 'wb') as f:
+            cloudpickle.dump(save_dict, f)
+        
+
+        
+
 
         
 
